@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gargantua | Beyond the Event Horizon</title>
+  <meta name="description" content="Cinematic and physically inspired visualization of a Schwarzschild black hole with gravitational lensing, relativistic Doppler beaming, rotating dust particles, and photon ring.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Inter', sans-serif; color: #fff; user-select: none; }
+    #canvas-container { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+    #canvas-container:active { cursor: grabbing; }
+    
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+      height: 80px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; pointer-events: none;
+    }
+    .brand { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 300; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,255,255,0.9); }
+    .nav-actions { display: flex; gap: 12px; pointer-events: auto; }
+    .btn {
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.75);
+      padding: 8px 16px; border-radius: 9999px; font-size: 11px; font-family: monospace;
+      letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.3s;
+    }
+    .btn:hover { border-color: rgba(255,179,71,0.5); color: #ffb347; }
+    
+    .hero {
+      position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+      padding: 0 60px; z-index: 20; pointer-events: none; max-width: 720px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 9999px;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1);
+      font-size: 10px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #ffb347;
+      margin-bottom: 24px; width: fit-content;
+    }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: #ffb347; }
+    h1 {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 300; font-size: clamp(36px, 6vw, 72px);
+      letter-spacing: 0.16em; text-transform: uppercase; line-height: 1.1; margin-bottom: 20px; color: rgba(255,255,255,0.95);
+    }
+    h1 span {
+      font-weight: 400; background: linear-gradient(to right, #fed7aa, #fbbf24, #f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    p {
+      font-size: clamp(13px, 1.2vw, 16px); font-weight: 300; line-height: 1.7; color: rgba(255,255,255,0.78);
+      max-width: 520px; margin-bottom: 32px;
+    }
+    .cta-btn {
+      pointer-events: auto; width: fit-content;
+      background: rgba(255, 179, 71, 0.08); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 179, 71, 0.4); color: #ffedd5;
+      padding: 14px 32px; border-radius: 9999px; font-size: 12px; font-weight: 500;
+      letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; transition: all 0.3s;
+      box-shadow: 0 0 25px -5px rgba(255, 122, 24, 0.25);
+    }
+    .cta-btn:hover {
+      background: rgba(255, 179, 71, 0.18); border-color: rgba(255, 179, 71, 0.8);
+      box-shadow: 0 0 35px -5px rgba(255, 122, 24, 0.45); color: #fff;
+    }
+    
+    footer {
+      position: fixed; bottom: 24px; left: 40px; z-index: 20; pointer-events: none;
+      font-size: 11px; font-family: monospace; letter-spacing: 0.12em; color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  
+  <header>
+    <div class="brand">GARGANTUA</div>
+    <div class="nav-actions">
+      <button class="btn" onclick="setPreset('oblique')">Oblique</button>
+      <button class="btn" onclick="setPreset('equatorial')">Equatorial</button>
+      <button class="btn" onclick="setPreset('polar')">Polar</button>
+      <button class="btn" onclick="toggleAudio()" id="audio-btn">Audio</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="pill"><span class="pill-dot"></span> General Relativity Simulation</div>
+    <h1>Beyond the<br><span>Event Horizon</span></h1>
+    <p>A real-time null geodesic simulation of gravitational lensing, Doppler-beamed Keplerian accretion, and rotating cosmic dust particles in curved spacetime.</p>
+    <button class="cta-btn" onclick="toggleOrbit()">Toggle Orbit</button>
+  </div>
+
+  <footer>Drag to tilt view · Scroll to zoom · 4,800 Rotating Dust Particles · 60 FPS</footer>
+
+  <script>
+    const SETTINGS = {
+      lensingStrength: 1.5,
+      diskBrightness: 2.8,
+      dopplerStrength: 1.3,
+      rotationSpeed: 0.6,
+      diskInner: 2.2,
+      diskOuter: 7.2,
+      fov: 0.95
+    };
+
+    const container = document.getElementById('canvas-container');
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.autoClear = false;
+    container.appendChild(renderer.domElement);
+
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const scene = new THREE.Scene();
+
+    const vertexShader = `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
+    `;
+
+    const fragmentShader = `
+      uniform vec2 uResolution;
+      uniform float uTime;
+      uniform vec3 uCameraPos;
+      uniform vec3 uCameraTarget;
+      uniform vec3 uCameraUp;
+      uniform float uFov;
+      uniform float uLensingStrength;
+      uniform float uDiskBrightness;
+      uniform float uDopplerStrength;
+      uniform float uRotationSpeed;
+      uniform float uDiskInner;
+      uniform float uDiskOuter;
+      uniform float uIgnition;
+
+      varying vec2 vUv;
+
+      #define RS 1.0
+      #define R_PHOTON (1.5 * RS)
+      #define MAX_STEPS 96
+      #define ESCAPE_RADIUS 26.0
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(234.34, 435.345));
+        p += dot(p, p + 34.23);
+        return fract(p.x * p.y);
+      }
+
+      float hash31(vec3 p) {
+        p = fract(p * vec3(443.897, 441.423, 437.195));
+        p += dot(p, p.yzx + 19.19);
+        return fract((p.x + p.y) * p.z);
+      }
+
+      float noise2d(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        float a = hash21(i);
+        float b = hash21(i + vec2(1.0, 0.0));
+        float c = hash21(i + vec2(0.0, 1.0));
+        float d = hash21(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+
+      float fbm(vec2 p) {
+        float val = 0.0; float amp = 0.55;
+        mat2 rot = mat2(cos(0.52), sin(0.52), -sin(0.52), cos(0.52));
+        for (int i = 0; i < 4; i++) {
+          val += amp * noise2d(p);
+          p = rot * p * 2.12 + vec2(1.7, 9.2);
+          amp *= 0.48;
+        }
+        return val;
+      }
+
+      vec3 sampleStarfield(vec3 rayDir) {
+        vec3 dir = normalize(rayDir);
+        vec3 starColor = vec3(0.0);
+        vec3 p1 = dir * 280.0;
+        vec3 id1 = floor(p1);
+        if (hash31(id1) > 0.987) {
+          float b = pow(hash31(id1 + 1.0), 15.0) * 2.0;
+          vec3 c = mix(vec3(0.85, 0.92, 1.0), vec3(1.0, 0.85, 0.65), hash31(id1 + 2.0));
+          starColor += c * b;
+        }
+        float neb = fbm(dir.xy * 2.2 + vec2(dir.z * 1.4, 0.0));
+        vec3 nebulaColor = vec3(0.009, 0.013, 0.028) * neb;
+        return starColor + nebulaColor;
+      }
+
+      vec3 blackbodyColor(float t) {
+        vec3 c1 = vec3(0.38, 0.04, 0.01);
+        vec3 c2 = vec3(0.96, 0.40, 0.06);
+        vec3 c3 = vec3(1.00, 0.78, 0.28);
+        vec3 c4 = vec3(1.00, 0.98, 0.92);
+        if (t < 0.25) return mix(c1, c2, t / 0.25);
+        if (t < 0.65) return mix(c2, c3, (t - 0.25) / 0.40);
+        return mix(c3, c4, (t - 0.65) / 0.35);
+      }
+
+      vec3 acesFilm(vec3 x) {
+        float a = 2.51; float b = 0.03; float c = 2.43; float d = 0.59; float e = 0.14;
+        return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+      }
+
+      void main() {
+        vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+        vec3 forward = normalize(uCameraTarget - uCameraPos);
+        vec3 right = normalize(cross(forward, uCameraUp));
+        vec3 up = cross(right, forward);
+        vec3 dir = normalize(forward * uFov + right * uv.x + up * uv.y);
+        vec3 pos = uCameraPos;
+
+        vec3 accumColor = vec3(0.0);
+        float transmission = 1.0;
+        float minDist = 1000.0;
+        bool enteredHorizon = false;
+
+        for (int step = 0; step < MAX_STEPS; step++) {
+          float r = length(pos);
+          minDist = min(minDist, r);
+          if (r <= RS * 1.002) { enteredHorizon = true; break; }
+          if (r > ESCAPE_RADIUS) break;
+
+          float stepSize = clamp(0.045 * (r - 0.88 * RS), 0.02, 0.42);
+          vec3 nextPos = pos + dir * stepSize;
+
+          if (pos.y * nextPos.y <= 0.0) {
+            float tCross = -pos.y / (nextPos.y - pos.y);
+            vec3 hitPos = pos + tCross * (nextPos - pos);
+            float diskR = length(hitPos.xz);
+            if (diskR >= uDiskInner && diskR <= uDiskOuter) {
+              float rNorm = (diskR - uDiskInner) / (uDiskOuter - uDiskInner);
+              float phi = atan(hitPos.z, hitPos.x);
+              float keplerOmega = uRotationSpeed * 1.85 / pow(diskR / uDiskInner, 1.5);
+              float rotPhi = phi - uTime * keplerOmega;
+              float turb = fbm(vec2(diskR * 2.2, rotPhi * 3.6));
+
+              float dustFilaments = noise2d(vec2(diskR * 7.5, rotPhi * 9.0));
+              float dustGrains = pow(noise2d(vec2(diskR * 18.0, rotPhi * 26.0)), 2.8) * 1.6;
+              float dustTexture = (0.50 * turb + 0.32 * dustFilaments + 0.28 * dustGrains);
+
+              vec3 vel = normalize(vec3(-sin(phi), 0.0, cos(phi)));
+              float beta = clamp(sqrt(RS / (2.0 * diskR)), 0.12, 0.55);
+              float vLos = dot(vel, -dir);
+              float gamma = 1.0 / sqrt(max(0.01, 1.0 - beta * beta));
+              float dopplerFactor = 1.0 / (gamma * (1.0 - beta * vLos));
+              float dopplerIntensity = pow(dopplerFactor, 3.4 * uDopplerStrength);
+
+              vec3 baseColor = blackbodyColor(pow(1.0 - rNorm, 1.85));
+              if (vLos > 0.0) baseColor = mix(baseColor, vec3(0.92, 0.96, 1.0), clamp(vLos * 0.82 * uDopplerStrength, 0.0, 0.92));
+              else baseColor = mix(baseColor, vec3(0.65, 0.08, 0.02), clamp(-vLos * 0.75 * uDopplerStrength, 0.0, 0.92));
+
+              float density = (0.40 + 0.60 * dustTexture) * pow(sin(rNorm * 3.141592), 0.65);
+              float alpha = clamp(density * 0.88, 0.0, 1.0);
+              accumColor += transmission * (baseColor * dopplerIntensity * uDiskBrightness * density * uIgnition);
+              transmission *= (1.0 - alpha * 0.82);
+              if (transmission < 0.02) break;
+            }
+          }
+
+          vec3 L = cross(pos, dir);
+          float L2 = dot(L, L);
+          vec3 force = -(1.5 * RS * uLensingStrength * (L2 + 0.12 * RS * RS) / (r * r * r * r * r)) * pos;
+          dir = normalize(dir + force * stepSize);
+          pos = nextPos;
+        }
+
+        if (!enteredHorizon) {
+          float distPhoton = abs(minDist - R_PHOTON);
+          float ring = exp(-distPhoton * 58.0) * 2.6 * uIgnition;
+          accumColor += transmission * vec3(1.0, 0.95, 0.84) * ring;
+          if (transmission > 0.01) accumColor += transmission * sampleStarfield(dir);
+        }
+
+        accumColor += vec3(1.0, 0.65, 0.22) * exp(-length(uv - vec2(-0.25, 0.0)) * 3.2) * 0.26 * uDiskBrightness * uIgnition;
+        accumColor += vec3(0.92, 0.82, 1.0) * exp(-abs(uv.y) * 46.0) * exp(-abs(uv.x) * 1.4) * 0.16 * uIgnition;
+        accumColor *= smoothstep(1.85, 0.42, length(uv));
+
+        vec3 finalCol = pow(acesFilm(accumColor), vec3(1.0 / 2.2));
+        gl_FragColor = vec4(finalCol * uIgnition, 1.0);
+      }
+    `;
+
+    const uniforms = {
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uTime: { value: 0.0 },
+      uCameraPos: { value: new THREE.Vector3() },
+      uCameraTarget: { value: new THREE.Vector3(0, 0, 0) },
+      uCameraUp: { value: new THREE.Vector3(0, 1, 0) },
+      uFov: { value: SETTINGS.fov },
+      uLensingStrength: { value: SETTINGS.lensingStrength },
+      uDiskBrightness: { value: SETTINGS.diskBrightness },
+      uDopplerStrength: { value: SETTINGS.dopplerStrength },
+      uRotationSpeed: { value: SETTINGS.rotationSpeed },
+      uDiskInner: { value: SETTINGS.diskInner },
+      uDiskOuter: { value: SETTINGS.diskOuter },
+      uIgnition: { value: 0.0 }
+    };
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms,
+      depthWrite: false,
+      depthTest: false
+    });
+
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    scene.add(quad);
+
+    // 3D Rotating Dust Particles
+    const verticalFov = 2 * Math.atan(0.5 / SETTINGS.fov) * (180 / Math.PI);
+    const perspectiveCamera = new THREE.PerspectiveCamera(verticalFov, window.innerWidth / window.innerHeight, 0.1, 100.0);
+    const dustScene = new THREE.Scene();
+
+    const particleCount = 4200;
+    const dustGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const aRadius = new Float32Array(particleCount);
+    const aAngle = new Float32Array(particleCount);
+    const aHeight = new Float32Array(particleCount);
+    const aSize = new Float32Array(particleCount);
+    const aSpeedMult = new Float32Array(particleCount);
+    const aColor = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+      let r = Math.random() < 0.78 ? (2.3 + Math.pow(Math.random(), 1.35) * 6.5) : (8.0 + Math.pow(Math.random(), 1.15) * 7.5);
+      const angle = Math.random() * Math.PI * 2;
+      const height = (Math.random() - 0.5) * 0.046 * r + (Math.random() - 0.5) * 0.08;
+      const size = Math.random() < 0.82 ? (1.5 + Math.random() * 2.8) : (3.6 + Math.random() * 4.4);
+      const speedMult = 0.88 + Math.random() * 0.28;
+
+      const rNorm = Math.min(1.0, Math.max(0.0, (r - 2.2) / 6.5));
+      const col = new THREE.Color();
+      if (rNorm < 0.25) col.setRGB(1.0, 0.94, 0.82);
+      else if (rNorm < 0.65) col.setRGB(1.0, 0.72, 0.22);
+      else col.setRGB(0.95, 0.32, 0.06);
+
+      positions[i * 3] = r * Math.cos(angle);
+      positions[i * 3 + 1] = height;
+      positions[i * 3 + 2] = r * Math.sin(angle);
+
+      aRadius[i] = r;
+      aAngle[i] = angle;
+      aHeight[i] = height;
+      aSize[i] = size;
+      aSpeedMult[i] = speedMult;
+      aColor[i * 3] = col.r;
+      aColor[i * 3 + 1] = col.g;
+      aColor[i * 3 + 2] = col.b;
+    }
+
+    dustGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    dustGeometry.setAttribute('aRadius', new THREE.BufferAttribute(aRadius, 1));
+    dustGeometry.setAttribute('aAngle', new THREE.BufferAttribute(aAngle, 1));
+    dustGeometry.setAttribute('aHeight', new THREE.BufferAttribute(aHeight, 1));
+    dustGeometry.setAttribute('aSize', new THREE.BufferAttribute(aSize, 1));
+    dustGeometry.setAttribute('aSpeedMult', new THREE.BufferAttribute(aSpeedMult, 1));
+    dustGeometry.setAttribute('aColor', new THREE.BufferAttribute(aColor, 3));
+
+    const dustVertexShader = `
+      attribute float aRadius;
+      attribute float aAngle;
+      attribute float aHeight;
+      attribute float aSize;
+      attribute float aSpeedMult;
+      attribute vec3 aColor;
+
+      uniform float uTime;
+      uniform float uRotationSpeed;
+      uniform float uIgnition;
+      uniform vec3 uCameraPos;
+
+      varying vec3 vColor;
+      varying float vAlpha;
+
+      void main() {
+        float rEff = max(1.6, aRadius);
+        float omega = (uRotationSpeed * 1.85 / pow(rEff / 2.2, 1.5)) * aSpeedMult;
+        float infallDrift = fract((uTime * 0.04 * aSpeedMult) / 10.0) * 1.2;
+        float dynamicR = max(1.8, rEff - infallDrift);
+        float currentAngle = aAngle - uTime * omega;
+        float y = aHeight + sin(currentAngle * 2.0 + aAngle * 3.0) * 0.035 * dynamicR;
+        vec3 worldPos = vec3(dynamicR * cos(currentAngle), y, dynamicR * sin(currentAngle));
+
+        vec3 velDir = normalize(vec3(-sin(currentAngle), 0.0, cos(currentAngle)));
+        vec3 toCam = normalize(uCameraPos - worldPos);
+        float vLos = dot(velDir, toCam);
+
+        vec3 col = aColor;
+        if (vLos > 0.0) {
+          col = mix(col, vec3(1.0, 0.98, 0.92), clamp(vLos * 0.65, 0.0, 0.85));
+          col *= (1.0 + vLos * 0.85);
+        } else {
+          col = mix(col, vec3(0.65, 0.12, 0.02), clamp(-vLos * 0.6, 0.0, 0.85));
+          col *= max(0.32, 1.0 + vLos * 0.45);
+        }
+
+        float camDist = length(uCameraPos);
+        vec3 camDir = -uCameraPos / camDist;
+        vec3 camToP = worldPos - uCameraPos;
+        float proj = dot(camToP, camDir);
+        float shadowOcclusion = 1.0;
+        if (proj > camDist) {
+          float perp = length(camToP - proj * camDir);
+          shadowOcclusion = smoothstep(1.2, 2.6, perp);
+          if (perp < 3.8 && perp > 0.1) {
+            vec3 perpDir = normalize(camToP - proj * camDir);
+            worldPos += perpDir * ((3.8 - perp) * 0.22);
+          }
+        }
+
+        vColor = col * 1.4;
+        vAlpha = uIgnition * shadowOcclusion * (0.72 + 0.28 * sin(uTime * 4.5 + aAngle * 19.0));
+
+        vec4 mvPosition = modelViewMatrix * vec4(worldPos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = clamp((aSize * (450.0 / -mvPosition.z)) * uIgnition, 1.5, 36.0);
+      }
+    `;
+
+    const dustFragmentShader = `
+      varying vec3 vColor;
+      varying float vAlpha;
+      void main() {
+        vec2 coord = gl_PointCoord - vec2(0.5);
+        float dist = length(coord);
+        if (dist > 0.5) discard;
+        float glow = exp(-dist * dist * 14.0);
+        float core = exp(-dist * 28.0) * 1.8;
+        gl_FragColor = vec4(vColor * glow + vec3(1.0, 0.96, 0.9) * core, vAlpha * glow);
+      }
+    `;
+
+    const dustUniforms = {
+      uTime: { value: 0.0 },
+      uRotationSpeed: { value: SETTINGS.rotationSpeed },
+      uIgnition: { value: 0.0 },
+      uCameraPos: { value: new THREE.Vector3() }
+    };
+
+    const dustMaterial = new THREE.ShaderMaterial({
+      vertexShader: dustVertexShader,
+      fragmentShader: dustFragmentShader,
+      uniforms: dustUniforms,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false
+    });
+
+    const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
+    dustScene.add(dustPoints);
+
+    const cameraState = {
+      spherical: { radius: 10.8, theta: 0.22, phi: 1.38 },
+      targetSpherical: { radius: 10.8, theta: 0.22, phi: 1.38 }
+    };
+
+    let isDragging = false;
+    let prevMouse = { x: 0, y: 0 };
+    let autoOrbit = true;
+
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+      perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+      perspectiveCamera.updateProjectionMatrix();
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      prevMouse = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const dx = e.clientX - prevMouse.x;
+        const dy = e.clientY - prevMouse.y;
+        prevMouse = { x: e.clientX, y: e.clientY };
+        cameraState.targetSpherical.theta -= dx * 0.005;
+        cameraState.targetSpherical.phi = Math.max(0.3, Math.min(Math.PI - 0.3, cameraState.targetSpherical.phi + dy * 0.005));
+      }
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('wheel', (e) => {
+      cameraState.targetSpherical.radius = Math.max(5.8, Math.min(18.0, cameraState.targetSpherical.radius + e.deltaY * 0.005));
+    }, { passive: true });
+
+    window.setPreset = function(preset) {
+      if (preset === 'oblique') { cameraState.targetSpherical.theta = 0.22; cameraState.targetSpherical.phi = 1.38; }
+      else if (preset === 'equatorial') { cameraState.targetSpherical.theta = 0.0; cameraState.targetSpherical.phi = 1.52; }
+      else if (preset === 'polar') { cameraState.targetSpherical.theta = 0.0; cameraState.targetSpherical.phi = 0.36; }
+    };
+
+    window.toggleOrbit = function() { autoOrbit = !autoOrbit; };
+
+    let audioCtx = null;
+    let audioPlaying = false;
+    window.toggleAudio = function() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(55.0, t);
+        gain.gain.setValueAtTime(0.2, t);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        audioPlaying = true;
+        document.getElementById('audio-btn').innerText = 'Audio On';
+      } else {
+        if (audioPlaying) {
+          audioCtx.suspend();
+          audioPlaying = false;
+          document.getElementById('audio-btn').innerText = 'Audio';
+        } else {
+          audioCtx.resume();
+          audioPlaying = true;
+          document.getElementById('audio-btn').innerText = 'Audio On';
+        }
+      }
+    };
+
+    let clock = new THREE.Clock();
+    let ignitionProgress = 0.0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      if (ignitionProgress < 1.0) {
+        ignitionProgress = Math.min(1.0, ignitionProgress + delta * 0.65);
+        const ign = Math.sin(ignitionProgress * Math.PI * 0.5);
+        uniforms.uIgnition.value = ign;
+        dustUniforms.uIgnition.value = ign;
+      }
+
+      if (!isDragging && autoOrbit) {
+        cameraState.targetSpherical.theta += delta * 0.04;
+      }
+
+      const c = cameraState;
+      c.spherical.radius += (c.targetSpherical.radius - c.spherical.radius) * 0.07;
+      c.spherical.theta += (c.targetSpherical.theta - c.spherical.theta) * 0.07;
+      c.spherical.phi += (c.targetSpherical.phi - c.spherical.phi) * 0.07;
+
+      const r = c.spherical.radius;
+      const th = c.spherical.theta;
+      const ph = c.spherical.phi;
+
+      uniforms.uTime.value = elapsed;
+      uniforms.uCameraPos.value.set(
+        r * Math.sin(ph) * Math.sin(th),
+        r * Math.cos(ph),
+        r * Math.sin(ph) * Math.cos(th)
+      );
+
+      dustUniforms.uTime.value = elapsed;
+      dustUniforms.uCameraPos.value.copy(uniforms.uCameraPos.value);
+
+      perspectiveCamera.position.copy(uniforms.uCameraPos.value);
+      perspectiveCamera.lookAt(0, 0, 0);
+
+      renderer.clear();
+      renderer.render(scene, camera);
+      renderer.render(dustScene, perspectiveCamera);
+    }
+    animate();
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Gargantua",
+  "description": "Photorealistic real-time visualization of a Schwarzschild black hole with general relativistic gravitational lensing, Doppler beaming, and accretion disk inspired by Interstellar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
