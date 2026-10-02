@@ -43,6 +43,10 @@ uniform float uDiskInner;
 uniform float uDiskOuter;
 uniform float uIgnition;
 uniform float uReducedMotion;
+  uniform vec2 uOffset;
+  uniform float uZoom;
+
+
 uniform int uColorTheme; // 0 = Gargantua (Gold), 1 = Sgr A* (Fire Orange), 2 = M87* (Radio Amber), 3 = Cygnus X-1 (X-ray Cyan/Blue)
 
 varying vec2 vUv;
@@ -167,7 +171,8 @@ vec3 acesFilm(vec3 x) {
 }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+  vec2 screenUv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+  vec2 uv = (screenUv - uOffset) / uZoom;
 
   vec3 forward = normalize(uCameraTarget - uCameraPos);
   vec3 right = normalize(cross(forward, uCameraUp));
@@ -220,23 +225,24 @@ void main() {
 
       if (hitRadius >= uDiskInner && hitRadius <= uDiskOuter) {
         float rNorm = (hitRadius - uDiskInner) / (uDiskOuter - uDiskInner);
+
+        // Keplerian-sheared filaments: inner gas laps the outer gas, stretching
+        // turbulence into thin, wispy streamers
         float phi = atan(hitPos.z, hitPos.x);
+        float kepler = uRotationSpeed * 0.9 / pow(hitRadius, 1.5);
+        float rotPhi = phi + effectiveTime * kepler;
+        vec2 ringCoord = vec2(cos(rotPhi), sin(rotPhi)) * 1.4;
+        float turbulence = fbm(vec2(hitRadius * 7.5, 0.0) + ringCoord);
+        float fineLanes = fbm(vec2(hitRadius * 22.0, 3.1) + ringCoord * 2.3);
+        float ringlets = 0.5 + 0.5 * sin(hitRadius * 34.0 + turbulence * 7.0);
+        float filament = pow(clamp(turbulence * 0.55 + fineLanes * 0.45, 0.0, 1.0), 2.4);
+        float diskDensity = clamp(0.12 + filament * 1.35 * mix(0.55, 1.0, ringlets), 0.0, 1.0);
 
-        // Keplerian angular velocity Omega proportional to r^-1.5
-        float omega = uRotationSpeed * 1.85 / pow(hitRadius / uDiskInner, 1.5);
-        float rotAngle = phi - effectiveTime * omega;
+        // Radial brightness falloff: peak near ISCO, fading outward with feathered edges
+        float radialProfile = pow(1.0 - rNorm, 2.2) * smoothstep(0.0, 0.05, rNorm) * smoothstep(1.0, 0.75, rNorm);
 
-        // Differential shear texture with dark dust lanes
-        vec2 diskCoord = vec2(hitRadius * 2.2, rotAngle * 3.6);
-        float turbulence = fbm(diskCoord);
-        float dustLane = smoothstep(0.32, 0.65, turbulence);
-
-        // Multi-frequency micro-dust granulation
-        float microDust = noise2d(vec2(hitRadius * 7.5, rotAngle * 12.0));
-        dustLane *= (0.75 + 0.25 * microDust);
-
-        // Radial brightness falloff: peak near ISCO, fading outward
-        float radialProfile = pow(1.0 - rNorm, 1.8) * smoothstep(0.0, 0.09, rNorm);
+        // Gravitational redshift dims and cools light climbing out of the well
+        float gravShift = sqrt(max(0.0, 1.0 - RS / hitRadius));
 
         // Relativistic Doppler beaming
         vec3 orbitalVelocity = normalize(vec3(-hitPos.z, 0.0, hitPos.x));
@@ -247,20 +253,21 @@ void main() {
         float dopplerFactor = sqrt((1.0 + vOverC * vDotN) / max(0.01, 1.0 - vOverC * vDotN));
         float dopplerMultiplier = pow(dopplerFactor, 3.0 * uDopplerStrength);
 
-        float tempNorm = clamp(pow(1.0 - rNorm, 0.75) * dopplerFactor, 0.0, 1.0);
+        float tempNorm = clamp(pow(1.0 - rNorm, 0.75) * dopplerFactor * gravShift, 0.0, 1.0);
         vec3 emissionColor = blackbodyColor(tempNorm, uColorTheme);
 
         if (vDotN > 0.0) {
-          emissionColor = mix(emissionColor, vec3(0.92, 0.96, 1.0), clamp(vDotN * 0.45 * uDopplerStrength, 0.0, 0.8));
+          emissionColor = mix(emissionColor, vec3(0.92, 0.96, 1.0), clamp(vDotN * 0.3 * uDopplerStrength, 0.0, 0.6));
         } else {
           emissionColor = mix(emissionColor, vec3(0.45, 0.04, 0.01), clamp(-vDotN * 0.4 * uDopplerStrength, 0.0, 0.7));
         }
 
-        float diskOpticalDepth = dustLane * radialProfile * 1.85;
-        vec3 diskColor = emissionColor * diskOpticalDepth * dopplerMultiplier * uDiskBrightness;
+        float diskOpticalDepth = diskDensity * radialProfile * 1.6;
+        vec3 diskColor = emissionColor * diskOpticalDepth * dopplerMultiplier * pow(gravShift, 3.0) * uDiskBrightness;
 
         accumulatedColor += diskColor * transmission;
-        transmission *= max(0.0, 1.0 - diskOpticalDepth * 0.72);
+        // Optically thin gas: the lensed far side of the disk glimmers through
+        transmission *= max(0.0, 1.0 - diskOpticalDepth * 0.45);
 
         if (transmission < 0.02) break;
       }
@@ -278,6 +285,11 @@ void main() {
     transmission = 0.0;
   }
 
+  // Spread, feathered shadow: rays grazing the photon sphere arrive heavily
+  // redshifted, so the horizon fades into space instead of ending at a hard edge
+  float shadowFeather = smoothstep(RS * 0.9, RS * 3.2, minDistance);
+  transmission *= pow(shadowFeather, 1.8);
+
   // Background starfield if ray escaped
   if (transmission > 0.005) {
     vec3 backgroundStars = sampleStarfield(dir);
@@ -286,26 +298,29 @@ void main() {
 
   // Razor-sharp incandescent photon sphere ring (r = 1.5 Rs)
   float photonDist = abs(minDistance - R_PHOTON);
-  float photonRingSharp = exp(-photonDist * 52.0) * 1.85 * uIgnition;
-  float photonSubRing = exp(-abs(minDistance - 1.485 * RS) * 92.0) * 0.95 * uIgnition;
-  float totalPhotonGlow = photonRingSharp + photonSubRing;
+  // Hairline photon ring with faint higher-order subrings (n=1, n=2 images)
+  float photonRingSharp = exp(-photonDist * 150.0) * 1.1 * uIgnition;
+  float photonSubRing = exp(-abs(minDistance - 1.49 * RS) * 320.0) * 0.45 * uIgnition;
+  float photonHalo = exp(-photonDist * 28.0) * 0.08 * uIgnition
+    + (enteredHorizon ? 0.0 : exp(-max(0.0, minDistance - R_PHOTON) * 2.6) * 0.035 * shadowFeather * uIgnition);
+  float totalPhotonGlow = photonRingSharp + photonSubRing + photonHalo;
 
   vec3 ringColor = uColorTheme == 3 ? vec3(0.55, 0.85, 1.0) : vec3(1.0, 0.88, 0.62);
-  accumulatedColor += ringColor * totalPhotonGlow * uDiskBrightness;
+  accumulatedColor += ringColor * totalPhotonGlow * uDiskBrightness * 0.6;
 
-  // Cinematic bloom, flare & film grain
-  vec2 diskCenterUv = vec2(0.0, 0.0);
-  float bloomDist = length(uv - diskCenterUv);
-  float bloom = exp(-bloomDist * 3.2) * 0.28 * uDiskBrightness * uIgnition;
+  // Restrained lens bloom & film grain
+  float bloomDist = length(uv);
+  float shadowMask = enteredHorizon ? 0.0 : shadowFeather;
+  float bloom = exp(-bloomDist * 4.5) * 0.06 * uDiskBrightness * uIgnition * shadowMask;
   accumulatedColor += (uColorTheme == 3 ? vec3(0.4, 0.7, 1.0) : vec3(1.0, 0.65, 0.22)) * bloom;
 
-  float anamorphicFlare = exp(-abs(uv.y) * 48.0) * exp(-abs(uv.x + 0.25) * 1.3) * 0.18 * uIgnition;
+  float anamorphicFlare = exp(-abs(uv.y) * 90.0) * exp(-abs(uv.x + 0.25) * 2.0) * 0.035 * uIgnition * shadowMask;
   accumulatedColor += vec3(0.92, 0.84, 1.0) * anamorphicFlare;
 
-  float grain = (hash21(uv * uResolution + fract(effectiveTime * 17.0)) - 0.5) * 0.026;
+  float grain = (hash21(uv * uResolution + fract(effectiveTime * 17.0)) - 0.5) * 0.012;
   accumulatedColor += vec3(grain);
 
-  float vignette = smoothstep(1.85, 0.42, length(uv));
+  float vignette = smoothstep(1.85, 0.42, length(screenUv));
   accumulatedColor *= vignette;
 
   vec3 finalColor = acesFilm(accumulatedColor);
@@ -655,8 +670,8 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
     pos: new THREE.Vector3(0, 2.2, 10.5),
     target: new THREE.Vector3(0, 0, 0),
     up: new THREE.Vector3(0, 1, 0),
-    spherical: { radius: 10.8, theta: 0.22, phi: 1.38 },
-    targetSpherical: { radius: 10.8, theta: 0.22, phi: 1.38 },
+    spherical: { radius: 15.5, theta: 0.22, phi: 1.38 },
+    targetSpherical: { radius: 15.5, theta: 0.22, phi: 1.38 },
   });
 
   const isDraggingRef = useRef(false);
@@ -789,15 +804,15 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       if (preset === 'oblique') {
         c.targetSpherical.theta = 0.22;
         c.targetSpherical.phi = 1.38;
-        c.targetSpherical.radius = 10.8;
+        c.targetSpherical.radius = 15.5;
       } else if (preset === 'equatorial') {
         c.targetSpherical.theta = 0.0;
         c.targetSpherical.phi = 1.52;
-        c.targetSpherical.radius = 11.2;
+        c.targetSpherical.radius = 16.0;
       } else if (preset === 'polar') {
         c.targetSpherical.theta = 0.0;
         c.targetSpherical.phi = 0.36;
-        c.targetSpherical.radius = 11.5;
+        c.targetSpherical.radius = 16.5;
       }
     }
   }, []);
@@ -898,6 +913,9 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       uDiskOuter: { value: mergedSettings.diskOuter },
       uIgnition: { value: 0.0 },
       uReducedMotion: { value: mergedSettings.reducedMotion ? 1.0 : 0.0 },
+      uOffset: { value: new THREE.Vector2(0, 0) },
+  uZoom: { value: 1.0 },
+
       uColorTheme: { value: themeMap[mergedSettings.colorTheme || 'gargantua'] ?? 0 },
     };
 
@@ -1193,15 +1211,12 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       isDraggingRef.current = false;
     };
 
-    const handleWheel = (e: WheelEvent) => {
-      if ((e.target as HTMLElement)?.closest('.settings-drawer, .modal-panel')) return;
-      flybyActiveRef.current = false;
-      const zoomDelta = e.deltaY * 0.005;
-      cameraRef.current.targetSpherical.radius = Math.max(
-        5.8,
-        Math.min(18.0, cameraRef.current.targetSpherical.radius + zoomDelta)
-      );
-    };
+  const scrollState = { target: 0, current: 0 };
+  
+  const handleWheel = (e: WheelEvent) => {
+  if ((e.target as HTMLElement)?.closest('.settings-drawer, .modal-panel')) return;
+  scrollState.target = Math.max(-1, Math.min(1, scrollState.target + e.deltaY * 0.0012));
+  };
 
     const domElement = renderer.domElement;
     domElement.addEventListener('mousedown', handleMouseDown);
@@ -1366,7 +1381,7 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
         const prog = flybyProgressRef.current;
         cameraRef.current.targetSpherical.theta = prog * 1.5;
         cameraRef.current.targetSpherical.phi = 1.35 + Math.sin(prog * 2.0) * 0.32;
-        cameraRef.current.targetSpherical.radius = 8.5 + Math.cos(prog * 1.5) * 3.5;
+        cameraRef.current.targetSpherical.radius = 12.5 + Math.cos(prog * 1.5) * 3.5;
       } else if (!isDraggingRef.current && autoOrbitRef.current && uniforms.uReducedMotion.value < 0.5) {
         cameraRef.current.targetSpherical.theta += delta * 0.04;
       }
@@ -1395,6 +1410,30 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       perspectiveCamera.position.copy(cam.pos);
       perspectiveCamera.lookAt(cam.target);
       perspectiveCamera.up.copy(cam.up);
+
+      const scrollVelocity = scrollState.target - scrollState.current;
+      scrollState.current += scrollVelocity * 0.08;
+      const s = scrollState.current;
+      const offsetX = Math.sin(s * 1.6) * 0.3;
+      const offsetY = s * 0.32;
+      uniforms.uOffset.value.set(offsetX, offsetY);
+
+      const zoom = 1 + Math.max(s, 0) * 1.1 + Math.max(-s, 0) * 0.35;
+      uniforms.uZoom.value = zoom;
+
+      // Shift and scale the 3D overlay (jets, probes) so it stays locked to the singularity
+      const viewW = container.clientWidth;
+      const viewH = container.clientHeight;
+      const subW = viewW / zoom;
+      const subH = viewH / zoom;
+      perspectiveCamera.setViewOffset(
+        viewW,
+        viewH,
+        (viewW - subW) / 2 - (offsetX * viewH) / zoom,
+        (viewH - subH) / 2 + (offsetY * viewH) / zoom,
+        subW,
+        subH,
+      );
 
       renderer.clear();
       renderer.render(scene, orthoCamera);

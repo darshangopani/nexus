@@ -206,7 +206,7 @@ if (!isProd) {
     server: {
       middlewareMode: true,
       // Share the app's HTTP server so the HMR WebSocket is reachable through proxies on the same port
-      ws: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
     },
     appType: 'custom',
   });
