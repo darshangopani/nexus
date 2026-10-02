@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
-import { cosmicAudio } from '../utils/audio';
+import { cosmicAudio } from '@/lib/audio';
 
 // =============================================================================
 // GARGANTUA: PRACTICAL ASTROPHYSICAL SCHWARZSCHILD BLACK HOLE SIMULATION
