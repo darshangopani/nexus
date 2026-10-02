@@ -22,7 +22,7 @@ export function HowItWorks() {
         <ol className="relative grid gap-10 md:grid-cols-3 md:gap-6">
           <motion.div
             aria-hidden="true"
-            className="absolute left-4 right-4 top-4 hidden h-px origin-left bg-gradient-to-r from-primary via-accent to-primary-2 md:block"
+            className="absolute left-4 right-4 top-4 hidden h-px origin-left bg-border md:block"
             initial={reduce ? false : { scaleX: 0 }}
             whileInView={{ scaleX: 1 }}
             viewport={{ once: true, margin: '-80px' }}
@@ -37,7 +37,7 @@ export function HowItWorks() {
               viewport={{ once: true, margin: '-80px' }}
               transition={{ duration: 0.6, delay: 0.3 + i * 0.25 }}
             >
-              <span className="relative z-10 flex size-8 items-center justify-center rounded-full border border-accent/60 bg-background font-mono text-xs text-accent">
+              <span className="relative z-10 flex size-8 items-center justify-center rounded-full border border-border bg-background font-mono text-xs text-foreground">
                 {i + 1}
               </span>
               <h3 className="font-display text-lg font-semibold">{s.title}</h3>

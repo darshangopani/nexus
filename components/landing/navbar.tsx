@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
 const LINKS = [
+  { href: '#theory', label: 'Theory' },
+  { href: '#pdf', label: 'PDF' },
+  { href: '#lectures', label: 'Lectures' },
   { href: '#features', label: 'Features' },
-  { href: '#how-it-works', label: 'How it Works' },
-  { href: '#about', label: 'About' },
   { href: '#faq', label: 'FAQ' },
 ];
 
@@ -18,10 +19,10 @@ export function Navbar() {
     <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-black/45 backdrop-blur-xl">
       <nav aria-label="Primary" className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5 text-[#ece8e1]">
-          <span className="relative flex size-6 items-center justify-center rounded-full border border-[#ffb347]/60">
-            <span className="size-2.5 rounded-full bg-black ring-2 ring-[#ff7a18]/80" />
+          <span className="relative flex size-6 items-center justify-center rounded-full border border-[#ecebe8]/40">
+            <span className="size-2.5 rounded-full bg-[#ecebe8]" />
           </span>
-          <span className="font-mono text-xs tracking-[0.28em]">EVENT HORIZON AI</span>
+          <span className="text-sm font-semibold tracking-tight">Event Horizon</span>
         </Link>
 
         <ul className="hidden items-center gap-1 md:flex">
@@ -29,7 +30,7 @@ export function Navbar() {
             <li key={l.href}>
               <a
                 href={l.href}
-                className="rounded-full px-3 py-1.5 text-sm text-[#ece8e1]/70 transition-colors hover:text-[#ece8e1] focus-visible:outline-2 focus-visible:outline-[#5ee7ff]"
+                className="rounded-full px-3 py-1.5 text-sm text-[#ece8e1]/70 transition-colors hover:text-[#ece8e1] focus-visible:outline-2 focus-visible:outline-[#ecebe8]"
               >
                 {l.label}
               </a>
@@ -38,7 +39,7 @@ export function Navbar() {
           <li>
             <Link
               href="/simulator"
-              className="rounded-full px-3 py-1.5 text-sm text-[#ece8e1]/70 transition-colors hover:text-[#ece8e1] focus-visible:outline-2 focus-visible:outline-[#5ee7ff]"
+              className="rounded-full px-3 py-1.5 text-sm text-[#ece8e1]/70 transition-colors hover:text-[#ece8e1] focus-visible:outline-2 focus-visible:outline-[#ecebe8]"
             >
               Simulator
             </Link>
@@ -48,7 +49,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <Link
             href="/chat"
-            className="rounded-full border border-[#5ee7ff]/50 bg-[#5ee7ff]/10 px-4 py-1.5 text-sm font-medium text-[#5ee7ff] transition-all hover:bg-[#5ee7ff]/20 hover:shadow-[0_0_24px_-6px_#5ee7ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5ee7ff]"
+            className="rounded-full bg-[#ecebe8] px-4 py-1.5 text-sm font-medium text-[#0c0c0d] transition-colors hover:bg-[#ecebe8]/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecebe8]"
           >
             Launch Chat
           </Link>

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, FileText, Menu, Moon, PanelLeftClose, PlaySquare, Plus, Sun, Trash2 } from 'lucide-react';
+import { BookOpen, FileText, ListChecks, Menu, Moon, PanelLeftClose, PlaySquare, Plus, Settings, Sun, Trash2 } from 'lucide-react';
 import { ChatThread } from './chat-thread';
 import { LectureFinder } from './lecture-finder';
+import { QuizMaker } from './quiz-maker';
 import { loadSessions, newSession, saveSessions } from '@/lib/chat-store';
 import type { ChatSession, Mode } from '@/lib/types';
 
@@ -12,6 +13,7 @@ const MODES: { id: Mode; label: string; icon: typeof BookOpen }[] = [
   { id: 'theory', label: 'Theory', icon: BookOpen },
   { id: 'pdf', label: 'PDF Chat', icon: FileText },
   { id: 'lectures', label: 'Lectures', icon: PlaySquare },
+  { id: 'quiz', label: 'Test', icon: ListChecks },
 ];
 
 export function ChatApp() {
@@ -171,6 +173,10 @@ export function ChatApp() {
             {dark ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
             {dark ? 'Light mode' : 'Dark mode'}
           </button>
+          <Link href="/settings" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-foreground/5 hover:text-foreground">
+            <Settings className="size-4" aria-hidden="true" />
+            Settings
+          </Link>
           <p className="px-2 pt-1 leading-relaxed">
             <kbd className="font-mono">Ctrl B</kbd> sidebar · <kbd className="font-mono">Esc</kbd> stop
           </p>
@@ -206,6 +212,8 @@ export function ChatApp() {
         <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
           {active.mode === 'lectures' ? (
             <LectureFinder />
+          ) : active.mode === 'quiz' ? (
+            <QuizMaker />
           ) : (
             <ChatThread
               key={active.id}

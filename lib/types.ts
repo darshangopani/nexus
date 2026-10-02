@@ -1,7 +1,15 @@
 import type { UIMessage } from 'ai';
 import type { Difficulty } from './prompts';
 
-export type Mode = 'theory' | 'pdf' | 'lectures';
+export type Mode = 'theory' | 'pdf' | 'lectures' | 'quiz';
+
+export type QuizQuestion = {
+  id: number;
+  question: string;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+};
 
 export type Lecture = {
   id: string;
