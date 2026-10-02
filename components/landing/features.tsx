@@ -1,69 +1,37 @@
-import { BookOpen, FileText, PlaySquare } from 'lucide-react';
+import { Code2, Download, History, Keyboard, Mic, MoonStar, Sigma, Zap } from 'lucide-react';
 import { Reveal } from './reveal';
 
-const MODULES = [
-  {
-    icon: BookOpen,
-    tag: 'Mode A',
-    title: 'Theory Tutor',
-    body: 'Ask any concept and get step-by-step explanations, analogies, formulas, and quizzes.',
-  },
-  {
-    icon: FileText,
-    tag: 'Mode B',
-    title: 'PDF Intelligence',
-    body: 'Upload notes, textbooks, or papers, then chat with them and get summaries with page-referenced answers.',
-  },
-  {
-    icon: PlaySquare,
-    tag: 'Mode C',
-    title: 'Lecture Finder',
-    body: 'Enter any topic and get curated YouTube lectures with title, channel, duration, and thumbnail.',
-  },
-];
-
-const CHIPS = [
-  'Streaming responses',
-  'Markdown + LaTeX math',
-  'Code highlighting',
-  'Chat history',
-  'Dark / light toggle',
-  'Export as PDF / Markdown',
-  'Voice input',
-  'Keyboard shortcuts',
+const FEATURES = [
+  { icon: Zap, title: 'Streaming responses', body: 'Answers appear as they are written, no waiting.' },
+  { icon: Sigma, title: 'Math rendering', body: 'Markdown and LaTeX formulas display cleanly.' },
+  { icon: Code2, title: 'Code highlighting', body: 'Syntax-highlighted snippets for any language.' },
+  { icon: History, title: 'Chat history', body: 'Pick up any past conversation where you left off.' },
+  { icon: Download, title: 'Export', body: 'Save chats as PDF or Markdown for revision.' },
+  { icon: Mic, title: 'Voice input', body: 'Ask questions out loud instead of typing.' },
+  { icon: MoonStar, title: 'Light and dark', body: 'Comfortable reading at any time of day.' },
+  { icon: Keyboard, title: 'Keyboard shortcuts', body: 'Move fast without leaving the keyboard.' },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="scroll-mt-20 px-4 py-24 sm:px-6">
+    <section id="features" className="scroll-mt-16 border-t border-border px-4 py-20 sm:px-6 lg:py-28">
       <div className="mx-auto flex max-w-6xl flex-col gap-12">
-        <Reveal className="flex flex-col gap-3">
-          <p className="hud text-accent">Core modules</p>
-          <h2 className="text-gold text-balance font-display text-3xl font-semibold sm:text-5xl">
-            Three instruments, one orbit.
+        <Reveal className="flex max-w-2xl flex-col gap-4">
+          <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            Everything else you need to study
           </h2>
+          <p className="text-pretty leading-relaxed text-muted">
+            Small details that make the three modules pleasant to use every day.
+          </p>
         </Reveal>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {MODULES.map((m, i) => (
-            <Reveal key={m.title} delay={i * 0.08}>
-              <article className="glass glow-hover flex h-full flex-col gap-5 rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                  <m.icon className="size-6 text-primary-2" aria-hidden="true" />
-                  <span className="hud text-muted">{m.tag}</span>
-                </div>
-                <h3 className="font-display text-xl font-semibold">{m.title}</h3>
-                <p className="text-pretty leading-relaxed text-muted">{m.body}</p>
-              </article>
-            </Reveal>
-          ))}
-        </div>
-
         <Reveal>
-          <ul className="flex flex-wrap gap-2" aria-label="Additional features">
-            {CHIPS.map((c) => (
-              <li key={c} className="glass glow-hover rounded-full px-4 py-2 font-mono text-xs text-foreground/80">
-                {c}
+          <ul className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map((f) => (
+              <li key={f.title} className="flex flex-col gap-3 bg-background p-6">
+                <f.icon className="size-5 text-muted" aria-hidden="true" />
+                <h3 className="font-medium text-foreground">{f.title}</h3>
+                <p className="text-sm leading-relaxed text-muted">{f.body}</p>
               </li>
             ))}
           </ul>
