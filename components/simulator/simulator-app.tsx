@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sliders, 
@@ -36,8 +38,8 @@ import {
   ActiveProbeTelemetry,
   CaliperData,
   BlackHoleHandle
-} from './components/GargantuaBlackHole';
-import { cosmicAudio } from './utils/audio';
+} from '@/components/GargantuaBlackHole';
+import { cosmicAudio } from '@/lib/audio';
 
 // Astrophysical & Cinematic Curated Presets
 interface AstrophysicalPreset {
