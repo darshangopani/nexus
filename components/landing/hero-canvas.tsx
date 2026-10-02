@@ -12,7 +12,7 @@ const GargantuaBlackHole = dynamic(
 
 export function HeroCanvas() {
   return (
-    <div className="fixed inset-0 -z-10 bg-black" aria-hidden="true">
+    <div className="fixed inset-0 z-0 bg-black" aria-hidden="true">
       <GargantuaBlackHole />
     </div>
   );

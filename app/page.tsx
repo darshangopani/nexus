@@ -12,7 +12,7 @@ export default function Home() {
     <>
       <HeroCanvas />
       <Navbar />
-      <main>
+      <main className="relative z-10">
         <Hero />
         <div className="relative bg-background/90 backdrop-blur-md">
           <Features />
