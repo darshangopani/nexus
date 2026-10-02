@@ -220,10 +220,24 @@ void main() {
 
       if (hitRadius >= uDiskInner && hitRadius <= uDiskOuter) {
         float rNorm = (hitRadius - uDiskInner) / (uDiskOuter - uDiskInner);
-        float diskDensity = 0.6;
 
-        // Radial brightness falloff: peak near ISCO, fading outward
-        float radialProfile = pow(1.0 - rNorm, 1.8) * smoothstep(0.0, 0.09, rNorm);
+        // Keplerian-sheared filaments: inner gas laps the outer gas, stretching
+        // turbulence into thin, wispy streamers
+        float phi = atan(hitPos.z, hitPos.x);
+        float kepler = uRotationSpeed * 0.9 / pow(hitRadius, 1.5);
+        float rotPhi = phi + effectiveTime * kepler;
+        vec2 ringCoord = vec2(cos(rotPhi), sin(rotPhi)) * 1.4;
+        float turbulence = fbm(vec2(hitRadius * 7.5, 0.0) + ringCoord);
+        float fineLanes = fbm(vec2(hitRadius * 22.0, 3.1) + ringCoord * 2.3);
+        float ringlets = 0.5 + 0.5 * sin(hitRadius * 34.0 + turbulence * 7.0);
+        float filament = pow(clamp(turbulence * 0.55 + fineLanes * 0.45, 0.0, 1.0), 2.4);
+        float diskDensity = clamp(0.12 + filament * 1.35 * mix(0.55, 1.0, ringlets), 0.0, 1.0);
+
+        // Radial brightness falloff: peak near ISCO, fading outward with feathered edges
+        float radialProfile = pow(1.0 - rNorm, 2.2) * smoothstep(0.0, 0.05, rNorm) * smoothstep(1.0, 0.75, rNorm);
+
+        // Gravitational redshift dims and cools light climbing out of the well
+        float gravShift = sqrt(max(0.0, 1.0 - RS / hitRadius));
 
         // Relativistic Doppler beaming
         vec3 orbitalVelocity = normalize(vec3(-hitPos.z, 0.0, hitPos.x));
@@ -234,20 +248,21 @@ void main() {
         float dopplerFactor = sqrt((1.0 + vOverC * vDotN) / max(0.01, 1.0 - vOverC * vDotN));
         float dopplerMultiplier = pow(dopplerFactor, 3.0 * uDopplerStrength);
 
-        float tempNorm = clamp(pow(1.0 - rNorm, 0.75) * dopplerFactor, 0.0, 1.0);
+        float tempNorm = clamp(pow(1.0 - rNorm, 0.75) * dopplerFactor * gravShift, 0.0, 1.0);
         vec3 emissionColor = blackbodyColor(tempNorm, uColorTheme);
 
         if (vDotN > 0.0) {
-          emissionColor = mix(emissionColor, vec3(0.92, 0.96, 1.0), clamp(vDotN * 0.45 * uDopplerStrength, 0.0, 0.8));
+          emissionColor = mix(emissionColor, vec3(0.92, 0.96, 1.0), clamp(vDotN * 0.3 * uDopplerStrength, 0.0, 0.6));
         } else {
           emissionColor = mix(emissionColor, vec3(0.45, 0.04, 0.01), clamp(-vDotN * 0.4 * uDopplerStrength, 0.0, 0.7));
         }
 
-        float diskOpticalDepth = diskDensity * radialProfile * 1.85;
-        vec3 diskColor = emissionColor * diskOpticalDepth * dopplerMultiplier * uDiskBrightness;
+        float diskOpticalDepth = diskDensity * radialProfile * 1.6;
+        vec3 diskColor = emissionColor * diskOpticalDepth * dopplerMultiplier * pow(gravShift, 3.0) * uDiskBrightness;
 
         accumulatedColor += diskColor * transmission;
-        transmission *= max(0.0, 1.0 - diskOpticalDepth * 0.72);
+        // Optically thin gas: the lensed far side of the disk glimmers through
+        transmission *= max(0.0, 1.0 - diskOpticalDepth * 0.45);
 
         if (transmission < 0.02) break;
       }
@@ -273,23 +288,24 @@ void main() {
 
   // Razor-sharp incandescent photon sphere ring (r = 1.5 Rs)
   float photonDist = abs(minDistance - R_PHOTON);
-  float photonRingSharp = exp(-photonDist * 52.0) * 1.85 * uIgnition;
-  float photonSubRing = exp(-abs(minDistance - 1.485 * RS) * 92.0) * 0.95 * uIgnition;
-  float totalPhotonGlow = photonRingSharp + photonSubRing;
+  // Hairline photon ring with faint higher-order subrings (n=1, n=2 images)
+  float photonRingSharp = exp(-photonDist * 150.0) * 1.1 * uIgnition;
+  float photonSubRing = exp(-abs(minDistance - 1.49 * RS) * 320.0) * 0.45 * uIgnition;
+  float photonHalo = exp(-photonDist * 28.0) * 0.08 * uIgnition;
+  float totalPhotonGlow = photonRingSharp + photonSubRing + photonHalo;
 
   vec3 ringColor = uColorTheme == 3 ? vec3(0.55, 0.85, 1.0) : vec3(1.0, 0.88, 0.62);
-  accumulatedColor += ringColor * totalPhotonGlow * uDiskBrightness;
+  accumulatedColor += ringColor * totalPhotonGlow * uDiskBrightness * 0.6;
 
-  // Cinematic bloom, flare & film grain
-  vec2 diskCenterUv = vec2(0.0, 0.0);
-  float bloomDist = length(uv - diskCenterUv);
-  float bloom = exp(-bloomDist * 3.2) * 0.28 * uDiskBrightness * uIgnition;
+  // Restrained lens bloom & film grain
+  float bloomDist = length(uv);
+  float bloom = exp(-bloomDist * 4.5) * 0.06 * uDiskBrightness * uIgnition;
   accumulatedColor += (uColorTheme == 3 ? vec3(0.4, 0.7, 1.0) : vec3(1.0, 0.65, 0.22)) * bloom;
 
-  float anamorphicFlare = exp(-abs(uv.y) * 48.0) * exp(-abs(uv.x + 0.25) * 1.3) * 0.18 * uIgnition;
+  float anamorphicFlare = exp(-abs(uv.y) * 90.0) * exp(-abs(uv.x + 0.25) * 2.0) * 0.035 * uIgnition;
   accumulatedColor += vec3(0.92, 0.84, 1.0) * anamorphicFlare;
 
-  float grain = (hash21(uv * uResolution + fract(effectiveTime * 17.0)) - 0.5) * 0.026;
+  float grain = (hash21(uv * uResolution + fract(effectiveTime * 17.0)) - 0.5) * 0.012;
   accumulatedColor += vec3(grain);
 
   float vignette = smoothstep(1.85, 0.42, length(uv));
