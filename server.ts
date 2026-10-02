@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
@@ -12,6 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+const httpServer = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production' || fs.existsSync(path.resolve(__dirname, 'dist'));
@@ -201,7 +203,11 @@ function getFallbackTheme(prompt: string) {
 if (!isProd) {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      // Share the app's HTTP server so the HMR WebSocket is reachable through proxies on the same port
+      ws: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+    },
     appType: 'custom',
   });
   app.use(vite.middlewares);
@@ -225,6 +231,6 @@ if (!isProd) {
   });
 }
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
 });

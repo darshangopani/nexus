@@ -1413,40 +1413,6 @@ Mass: ${customMassInput.toLocaleString()} Solar Masses (${M_kg.toExponential(3)}
               />
             </div>
 
-            {/* Rotating Dust Particles Speed */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5 font-mono">
-                <span className="text-white/80">Dust Particles Orbit Speed</span>
-                <span className="text-amber-400 font-semibold">{(settings.dustOrbitSpeed ?? 1.0).toFixed(2)}x</span>
-              </div>
-              <input
-                type="range"
-                min="0.1"
-                max="3.0"
-                step="0.05"
-                value={settings.dustOrbitSpeed ?? 1.0}
-                onChange={(e) => setSettings({ ...settings, dustOrbitSpeed: parseFloat(e.target.value) })}
-                className="w-full accent-amber-400 h-1.5 bg-white/10 rounded-lg cursor-pointer"
-              />
-            </div>
-
-            {/* Dust Particle Brightness */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5 font-mono">
-                <span className="text-white/80">Dust Particles Brightness</span>
-                <span className="text-amber-400 font-semibold">{(settings.dustBrightness ?? 1.4).toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0.2"
-                max="3.0"
-                step="0.05"
-                value={settings.dustBrightness ?? 1.4}
-                onChange={(e) => setSettings({ ...settings, dustBrightness: parseFloat(e.target.value) })}
-                className="w-full accent-amber-400 h-1.5 bg-white/10 rounded-lg cursor-pointer"
-              />
-            </div>
-
             {/* Soundscape Volume */}
             <div>
               <div className="flex justify-between items-center mb-1.5 font-mono">

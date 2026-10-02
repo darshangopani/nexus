@@ -926,87 +926,6 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
     );
     perspectiveCameraRef.current = perspectiveCamera;
 
-    // Dust particles
-    const particleCount = mergedSettings.dustParticleCount ?? 4800;
-    const dustGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const aRadius = new Float32Array(particleCount);
-    const aAngle = new Float32Array(particleCount);
-    const aHeight = new Float32Array(particleCount);
-    const aSize = new Float32Array(particleCount);
-    const aSpeedMult = new Float32Array(particleCount);
-    const aColor = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount; i++) {
-      let r: number;
-      if (Math.random() < 0.72) {
-        const u = Math.random();
-        r = 2.2 + Math.pow(u, 1.4) * 5.4;
-      } else {
-        r = 7.6 + Math.random() * 4.8;
-      }
-      const angle = Math.random() * Math.PI * 2;
-      const heightScale = 0.046 * r;
-      const height = (Math.random() - 0.5) * heightScale + (Math.random() - 0.5) * 0.08;
-      const size = Math.random() < 0.82 ? (1.5 + Math.random() * 2.8) : (3.6 + Math.random() * 4.4);
-      const speedMult = 0.88 + Math.random() * 0.28;
-
-      const rNorm = Math.min(1.0, Math.max(0.0, (r - 2.2) / 6.5));
-      const color = new THREE.Color();
-      if (rNorm < 0.25) {
-        color.setRGB(1.0, 0.94, 0.82);
-      } else if (rNorm < 0.65) {
-        color.setRGB(1.0, 0.72, 0.22);
-      } else {
-        color.setRGB(0.95, 0.32, 0.06);
-      }
-
-      positions[i * 3] = r * Math.cos(angle);
-      positions[i * 3 + 1] = height;
-      positions[i * 3 + 2] = r * Math.sin(angle);
-
-      aRadius[i] = r;
-      aAngle[i] = angle;
-      aHeight[i] = height;
-      aSize[i] = size;
-      aSpeedMult[i] = speedMult;
-      aColor[i * 3] = color.r;
-      aColor[i * 3 + 1] = color.g;
-      aColor[i * 3 + 2] = color.b;
-    }
-
-    dustGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    dustGeometry.setAttribute('aRadius', new THREE.BufferAttribute(aRadius, 1));
-    dustGeometry.setAttribute('aAngle', new THREE.BufferAttribute(aAngle, 1));
-    dustGeometry.setAttribute('aHeight', new THREE.BufferAttribute(aHeight, 1));
-    dustGeometry.setAttribute('aSize', new THREE.BufferAttribute(aSize, 1));
-    dustGeometry.setAttribute('aSpeedMult', new THREE.BufferAttribute(aSpeedMult, 1));
-    dustGeometry.setAttribute('aColor', new THREE.BufferAttribute(aColor, 3));
-
-    const dustUniforms = {
-      uTime: { value: 0.0 },
-      uRotationSpeed: { 
-        value: mergedSettings.rotationSpeed * (mergedSettings.dustOrbitSpeed ?? 1.0) 
-      },
-      uIgnition: { value: 0.0 },
-      uBrightness: { value: mergedSettings.dustBrightness ?? 1.4 },
-      uCameraPos: { value: new THREE.Vector3() },
-    };
-
-    const dustMaterial = new THREE.ShaderMaterial({
-      vertexShader: DUST_VERTEX_SHADER,
-      fragmentShader: DUST_FRAGMENT_SHADER,
-      uniforms: dustUniforms,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false,
-    });
-    dustMaterialRef.current = dustMaterial;
-
-    const dustPoints = new THREE.Points(dustGeometry, dustMaterial);
-    dustScene.add(dustPoints);
-
     // 5. Relativistic Polar Jets System (along +/- Y axes)
     const jetCount = 1400;
     const jetGeometry = new THREE.BufferGeometry();
@@ -1327,7 +1246,6 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
         ignitionProgress = Math.min(1.0, ignitionProgress + delta * 0.65);
         const ignVal = Math.sin(ignitionProgress * Math.PI * 0.5);
         uniforms.uIgnition.value = ignVal;
-        dustUniforms.uIgnition.value = ignVal;
         jetUniforms.uIgnition.value = ignVal;
         if (ignitionProgress >= 0.6 && !hasNotifiedIgnited) {
           hasNotifiedIgnited = true;
@@ -1472,9 +1390,6 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       uniforms.uTime.value = elapsedTime;
       uniforms.uCameraPos.value.copy(cam.pos);
 
-      dustUniforms.uTime.value = elapsedTime;
-      dustUniforms.uCameraPos.value.copy(cam.pos);
-
       jetUniforms.uTime.value = elapsedTime;
 
       perspectiveCamera.position.copy(cam.pos);
@@ -1509,8 +1424,6 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       renderer.dispose();
       material.dispose();
       quad.geometry.dispose();
-      dustMaterial.dispose();
-      dustGeometry.dispose();
       jetMaterial.dispose();
       jetGeometry.dispose();
       dustScene.clear();
