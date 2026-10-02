@@ -43,6 +43,10 @@ uniform float uDiskInner;
 uniform float uDiskOuter;
 uniform float uIgnition;
 uniform float uReducedMotion;
+  uniform vec2 uOffset;
+  uniform float uZoom;
+
+
 uniform int uColorTheme; // 0 = Gargantua (Gold), 1 = Sgr A* (Fire Orange), 2 = M87* (Radio Amber), 3 = Cygnus X-1 (X-ray Cyan/Blue)
 
 varying vec2 vUv;
@@ -167,7 +171,8 @@ vec3 acesFilm(vec3 x) {
 }
 
 void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+  vec2 screenUv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+  vec2 uv = (screenUv - uOffset) / uZoom;
 
   vec3 forward = normalize(uCameraTarget - uCameraPos);
   vec3 right = normalize(cross(forward, uCameraUp));
@@ -280,6 +285,11 @@ void main() {
     transmission = 0.0;
   }
 
+  // Spread, feathered shadow: rays grazing the photon sphere arrive heavily
+  // redshifted, so the horizon fades into space instead of ending at a hard edge
+  float shadowFeather = smoothstep(RS * 0.9, RS * 3.2, minDistance);
+  transmission *= pow(shadowFeather, 1.8);
+
   // Background starfield if ray escaped
   if (transmission > 0.005) {
     vec3 backgroundStars = sampleStarfield(dir);
@@ -291,7 +301,8 @@ void main() {
   // Hairline photon ring with faint higher-order subrings (n=1, n=2 images)
   float photonRingSharp = exp(-photonDist * 150.0) * 1.1 * uIgnition;
   float photonSubRing = exp(-abs(minDistance - 1.49 * RS) * 320.0) * 0.45 * uIgnition;
-  float photonHalo = exp(-photonDist * 28.0) * 0.08 * uIgnition;
+  float photonHalo = exp(-photonDist * 28.0) * 0.08 * uIgnition
+    + (enteredHorizon ? 0.0 : exp(-max(0.0, minDistance - R_PHOTON) * 2.6) * 0.035 * shadowFeather * uIgnition);
   float totalPhotonGlow = photonRingSharp + photonSubRing + photonHalo;
 
   vec3 ringColor = uColorTheme == 3 ? vec3(0.55, 0.85, 1.0) : vec3(1.0, 0.88, 0.62);
@@ -299,16 +310,17 @@ void main() {
 
   // Restrained lens bloom & film grain
   float bloomDist = length(uv);
-  float bloom = exp(-bloomDist * 4.5) * 0.06 * uDiskBrightness * uIgnition;
+  float shadowMask = enteredHorizon ? 0.0 : shadowFeather;
+  float bloom = exp(-bloomDist * 4.5) * 0.06 * uDiskBrightness * uIgnition * shadowMask;
   accumulatedColor += (uColorTheme == 3 ? vec3(0.4, 0.7, 1.0) : vec3(1.0, 0.65, 0.22)) * bloom;
 
-  float anamorphicFlare = exp(-abs(uv.y) * 90.0) * exp(-abs(uv.x + 0.25) * 2.0) * 0.035 * uIgnition;
+  float anamorphicFlare = exp(-abs(uv.y) * 90.0) * exp(-abs(uv.x + 0.25) * 2.0) * 0.035 * uIgnition * shadowMask;
   accumulatedColor += vec3(0.92, 0.84, 1.0) * anamorphicFlare;
 
   float grain = (hash21(uv * uResolution + fract(effectiveTime * 17.0)) - 0.5) * 0.012;
   accumulatedColor += vec3(grain);
 
-  float vignette = smoothstep(1.85, 0.42, length(uv));
+  float vignette = smoothstep(1.85, 0.42, length(screenUv));
   accumulatedColor *= vignette;
 
   vec3 finalColor = acesFilm(accumulatedColor);
@@ -658,8 +670,8 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
     pos: new THREE.Vector3(0, 2.2, 10.5),
     target: new THREE.Vector3(0, 0, 0),
     up: new THREE.Vector3(0, 1, 0),
-    spherical: { radius: 10.8, theta: 0.22, phi: 1.38 },
-    targetSpherical: { radius: 10.8, theta: 0.22, phi: 1.38 },
+    spherical: { radius: 15.5, theta: 0.22, phi: 1.38 },
+    targetSpherical: { radius: 15.5, theta: 0.22, phi: 1.38 },
   });
 
   const isDraggingRef = useRef(false);
@@ -792,15 +804,15 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       if (preset === 'oblique') {
         c.targetSpherical.theta = 0.22;
         c.targetSpherical.phi = 1.38;
-        c.targetSpherical.radius = 10.8;
+        c.targetSpherical.radius = 15.5;
       } else if (preset === 'equatorial') {
         c.targetSpherical.theta = 0.0;
         c.targetSpherical.phi = 1.52;
-        c.targetSpherical.radius = 11.2;
+        c.targetSpherical.radius = 16.0;
       } else if (preset === 'polar') {
         c.targetSpherical.theta = 0.0;
         c.targetSpherical.phi = 0.36;
-        c.targetSpherical.radius = 11.5;
+        c.targetSpherical.radius = 16.5;
       }
     }
   }, []);
@@ -901,6 +913,9 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       uDiskOuter: { value: mergedSettings.diskOuter },
       uIgnition: { value: 0.0 },
       uReducedMotion: { value: mergedSettings.reducedMotion ? 1.0 : 0.0 },
+      uOffset: { value: new THREE.Vector2(0, 0) },
+  uZoom: { value: 1.0 },
+
       uColorTheme: { value: themeMap[mergedSettings.colorTheme || 'gargantua'] ?? 0 },
     };
 
@@ -1196,15 +1211,12 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       isDraggingRef.current = false;
     };
 
-    const handleWheel = (e: WheelEvent) => {
-      if ((e.target as HTMLElement)?.closest('.settings-drawer, .modal-panel')) return;
-      flybyActiveRef.current = false;
-      const zoomDelta = e.deltaY * 0.005;
-      cameraRef.current.targetSpherical.radius = Math.max(
-        5.8,
-        Math.min(18.0, cameraRef.current.targetSpherical.radius + zoomDelta)
-      );
-    };
+  const scrollState = { target: 0, current: 0 };
+  
+  const handleWheel = (e: WheelEvent) => {
+  if ((e.target as HTMLElement)?.closest('.settings-drawer, .modal-panel')) return;
+  scrollState.target = Math.max(-1, Math.min(1, scrollState.target + e.deltaY * 0.0012));
+  };
 
     const domElement = renderer.domElement;
     domElement.addEventListener('mousedown', handleMouseDown);
@@ -1369,7 +1381,7 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
         const prog = flybyProgressRef.current;
         cameraRef.current.targetSpherical.theta = prog * 1.5;
         cameraRef.current.targetSpherical.phi = 1.35 + Math.sin(prog * 2.0) * 0.32;
-        cameraRef.current.targetSpherical.radius = 8.5 + Math.cos(prog * 1.5) * 3.5;
+        cameraRef.current.targetSpherical.radius = 12.5 + Math.cos(prog * 1.5) * 3.5;
       } else if (!isDraggingRef.current && autoOrbitRef.current && uniforms.uReducedMotion.value < 0.5) {
         cameraRef.current.targetSpherical.theta += delta * 0.04;
       }
@@ -1398,6 +1410,30 @@ export const GargantuaBlackHole = forwardRef<BlackHoleHandle, GargantuaProps>(({
       perspectiveCamera.position.copy(cam.pos);
       perspectiveCamera.lookAt(cam.target);
       perspectiveCamera.up.copy(cam.up);
+
+      const scrollVelocity = scrollState.target - scrollState.current;
+      scrollState.current += scrollVelocity * 0.08;
+      const s = scrollState.current;
+      const offsetX = Math.sin(s * 1.6) * 0.3;
+      const offsetY = s * 0.32;
+      uniforms.uOffset.value.set(offsetX, offsetY);
+
+      const zoom = 1 + Math.max(s, 0) * 1.1 + Math.max(-s, 0) * 0.35;
+      uniforms.uZoom.value = zoom;
+
+      // Shift and scale the 3D overlay (jets, probes) so it stays locked to the singularity
+      const viewW = container.clientWidth;
+      const viewH = container.clientHeight;
+      const subW = viewW / zoom;
+      const subH = viewH / zoom;
+      perspectiveCamera.setViewOffset(
+        viewW,
+        viewH,
+        (viewW - subW) / 2 - (offsetX * viewH) / zoom,
+        (viewH - subH) / 2 + (offsetY * viewH) / zoom,
+        subW,
+        subH,
+      );
 
       renderer.clear();
       renderer.render(scene, orthoCamera);
