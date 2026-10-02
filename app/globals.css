@@ -13,6 +13,8 @@
   --primary: #161616;
   --primary-2: #8a5a2b;
   --accent: #8a5a2b;
+  --correct: #2f7a4f;
+  --wrong: #b4473a;
 }
 
 .dark {
@@ -24,6 +26,8 @@
   --primary: #ecebe8;
   --primary-2: #c7965f;
   --accent: #c7965f;
+  --correct: #6fbf8b;
+  --wrong: #e07a6c;
 }
 
 @theme inline {
@@ -38,6 +42,8 @@
   --color-primary: var(--primary);
   --color-primary-2: var(--primary-2);
   --color-accent: var(--accent);
+  --color-correct: var(--correct);
+  --color-wrong: var(--wrong);
   --color-amber-accent: #ffb347;
   --color-gold-accent: #ff7a18;
 }

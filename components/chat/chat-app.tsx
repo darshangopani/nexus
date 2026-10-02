@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, FileText, Menu, Moon, PanelLeftClose, PlaySquare, Plus, Sun, Trash2 } from 'lucide-react';
+import { BookOpen, FileText, ListChecks, Menu, Moon, PanelLeftClose, PlaySquare, Plus, Sun, Trash2 } from 'lucide-react';
 import { ChatThread } from './chat-thread';
 import { LectureFinder } from './lecture-finder';
+import { QuizMaker } from './quiz-maker';
 import { loadSessions, newSession, saveSessions } from '@/lib/chat-store';
 import type { ChatSession, Mode } from '@/lib/types';
 
@@ -12,6 +13,7 @@ const MODES: { id: Mode; label: string; icon: typeof BookOpen }[] = [
   { id: 'theory', label: 'Theory', icon: BookOpen },
   { id: 'pdf', label: 'PDF Chat', icon: FileText },
   { id: 'lectures', label: 'Lectures', icon: PlaySquare },
+  { id: 'quiz', label: 'Test', icon: ListChecks },
 ];
 
 export function ChatApp() {
@@ -206,6 +208,8 @@ export function ChatApp() {
         <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
           {active.mode === 'lectures' ? (
             <LectureFinder />
+          ) : active.mode === 'quiz' ? (
+            <QuizMaker />
           ) : (
             <ChatThread
               key={active.id}
