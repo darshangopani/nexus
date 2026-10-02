@@ -34,7 +34,12 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const key = process.env.YOUTUBE_API_KEY;
-  if (!key) return Response.json({ error: 'YOUTUBE_API_KEY is not configured.' }, { status: 503 });
+  if (!key) {
+    return Response.json(
+      { error: 'Lecture search is offline right now. Add a YouTube API key in Vars to enable it.' },
+      { status: 503 },
+    );
+  }
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Enter a topic between 2 and 200 characters.' }, { status: 400 });
