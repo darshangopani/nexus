@@ -220,20 +220,7 @@ void main() {
 
       if (hitRadius >= uDiskInner && hitRadius <= uDiskOuter) {
         float rNorm = (hitRadius - uDiskInner) / (uDiskOuter - uDiskInner);
-        float phi = atan(hitPos.z, hitPos.x);
-
-        // Keplerian angular velocity Omega proportional to r^-1.5
-        float omega = uRotationSpeed * 1.85 / pow(hitRadius / uDiskInner, 1.5);
-        float rotAngle = phi - effectiveTime * omega;
-
-        // Differential shear texture with dark dust lanes
-        vec2 diskCoord = vec2(hitRadius * 2.2, rotAngle * 3.6);
-        float turbulence = fbm(diskCoord);
-        float dustLane = smoothstep(0.32, 0.65, turbulence);
-
-        // Multi-frequency micro-dust granulation
-        float microDust = noise2d(vec2(hitRadius * 7.5, rotAngle * 12.0));
-        dustLane *= (0.75 + 0.25 * microDust);
+        float diskDensity = 0.6;
 
         // Radial brightness falloff: peak near ISCO, fading outward
         float radialProfile = pow(1.0 - rNorm, 1.8) * smoothstep(0.0, 0.09, rNorm);
@@ -256,7 +243,7 @@ void main() {
           emissionColor = mix(emissionColor, vec3(0.45, 0.04, 0.01), clamp(-vDotN * 0.4 * uDopplerStrength, 0.0, 0.7));
         }
 
-        float diskOpticalDepth = dustLane * radialProfile * 1.85;
+        float diskOpticalDepth = diskDensity * radialProfile * 1.85;
         vec3 diskColor = emissionColor * diskOpticalDepth * dopplerMultiplier * uDiskBrightness;
 
         accumulatedColor += diskColor * transmission;
